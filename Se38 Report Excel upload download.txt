@@ -1,0 +1,88 @@
+PARAMETERS: p_file  TYPE rlgrap-filename. " Excel File Path
+
+*F4 HELP FOR File Selection
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+*  Opening file selection dialog
+  CALL METHOD cl_gui_frontend_services=>file_open_dialog
+    EXPORTING
+      window_title            = 'Select Excel File'
+      default_extension       = 'XLS'
+    CHANGING
+      file_table              = lt_filetab
+      rc                      = lv_rc
+    EXCEPTIONS
+      file_open_dialog_failed = 1
+      cntl_error              = 2
+      error_no_gui            = 3
+      not_supported_by_gui    = 4
+      OTHERS                  = 5.
+
+* Reading selected file
+  READ TABLE lt_filetab INTO DATA(ls_file) INDEX 1.
+  IF sy-subrc = 0.
+    p_file = ls_file-filename.
+  ENDIF.
+  IF sy-subrc <> 0.
+  ENDIF.
+
+or
+
+DATA: gv_xstring TYPE xstring,
+
+      gv_file    TYPE string.
+
+*---------------------------------------------------------------------*
+* F4
+*---------------------------------------------------------------------*
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+  CALL FUNCTION 'F4_FILENAME' IMPORTING file_name = p_file.
+
+*---------------------------------------------------------------------*
+* START-OF-SELECTION
+*---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  IF p_file IS INITIAL.
+    MESSAGE 'Please select a file' TYPE 'E'.
+  ENDIF.
+
+  gv_file = p_file.
+
+
+DATA: lt_bin TYPE STANDARD TABLE OF x255,
+        lv_len TYPE i.
+
+  CALL FUNCTION 'GUI_UPLOAD'
+    EXPORTING
+      filename   = iv_file
+      filetype   = 'BIN'
+    IMPORTING
+      filelength = lv_len
+    TABLES
+      data_tab   = lt_bin.
+
+  CALL FUNCTION 'SCMS_BINARY_TO_XSTRING'
+    EXPORTING
+      input_length = lv_len
+    IMPORTING
+      buffer       = cv_xstring
+    TABLES
+      binary_tab   = lt_bin.
+
+  " Read XLSX using XCO classes
+  DATA(lo_xlsx) =
+    xco_cp_xlsx=>document->for_file_content( iv_file_content = cv_xstring )->read_access( ).
+
+  DATA(lo_ws) = lo_xlsx->get_workbook( )->worksheet->at_position( 1 ).
+
+  DATA(lo_pattern) =
+    xco_cp_xlsx_selection=>pattern_builder->simple_from_to(
+      )->from_row( xco_cp_xlsx=>coordinate->for_numeric_value( 2 )
+      )->from_column( xco_cp_xlsx=>coordinate->for_numeric_value( 1 )
+      )->to_column( xco_cp_xlsx=>coordinate->for_numeric_value( 8 )
+      )->get_pattern( ).
+
+  lo_ws->select( lo_pattern )->row_stream(
+    )->operation->write_to( REF #( lt_excel )
+    )->set_value_transformation( xco_cp_xlsx_read_access=>value_transformation->string_value
+    )->if_xco_xlsx_ra_operation~execute( ).
