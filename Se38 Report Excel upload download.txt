@@ -120,3 +120,18 @@ DATA: lt_template        TYPE STANDARD TABLE OF <>.
     DATA(lv_file_content) = lo_write_access->get_file_content( ).
 
 
+    CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+    EXPORTING
+      buffer     = lv_file_content
+    TABLES
+      binary_tab = lt_bin_data.
+
+   cl_gui_frontend_services=>gui_download(
+    EXPORTING
+    filename = CONV #( iv_file )
+    filetype = 'BIN'
+    IMPORTING
+      filelength = DATA(lv_len)
+    CHANGING
+      data_tab = lt_bin_data
+    ).
