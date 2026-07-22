@@ -86,3 +86,37 @@ DATA: lt_bin TYPE STANDARD TABLE OF x255,
     )->operation->write_to( REF #( lt_excel )
     )->set_value_transformation( xco_cp_xlsx_read_access=>value_transformation->string_value
     )->if_xco_xlsx_ra_operation~execute( ).
+
+
+*----------------------------------------------------------
+Download
+*----------------------------------------------------------
+
+DATA: lt_template        TYPE STANDARD TABLE OF <>.
+
+    DATA(lo_write_access) = xco_cp_xlsx=>document->empty( )->write_access( ).
+    DATA(lo_worksheet) = lo_write_access->get_workbook(
+        )->worksheet->at_position( 1 ).
+
+    DATA(lo_selection_pattern) = xco_cp_xlsx_selection=>pattern_builder->simple_from_to(
+                               )->from_column( xco_cp_xlsx=>coordinate->for_alphabetic_value( 'A' )
+                               )->to_column( xco_cp_xlsx=>coordinate->for_alphabetic_value( 'M' )
+                               )->from_row( xco_cp_xlsx=>coordinate->for_numeric_value( 1 )
+                               )->get_pattern( ).
+
+    lt_template = VALUE #( (
+    emp_id = 'User Id'
+    dev_id = 'Development Id'
+    dev_desc = 'Development Description'
+    obj_type = 'Object Type'
+    obj_name = 'Object Name'
+    ) ).
+
+    lo_worksheet->select( lo_selection_pattern
+        )->row_stream(
+        )->operation->write_from( REF #( lt_template )
+        )->execute( ).
+
+    DATA(lv_file_content) = lo_write_access->get_file_content( ).
+
+
